@@ -10,7 +10,7 @@ export async function analyzeVitals(vitals: { hr: number, spo2: number, temp: nu
 
   const prompt = `
     As a medical AI assistant for MediBot, analyze these vitals briefly:
-    HR: ${vitals.hr} BPM, SpO2: ${vitals.spo2}%, Temp: ${vitals.temp}°C, Stress: ${vitals.stress || 'Not calculated'}.
+    HR: ${vitals.hr} BPM, SpO2: ${vitals.spo2}%, Hand Temp: ${vitals.temp}°C, Stress: ${vitals.stress || 'Not calculated'}.
     Patient: ${patientData?.weight || 'Unknown'} kg, Blood Group: ${patientData?.bloodGroup || 'Unknown'}.
     
     Please provide a very short and sweet summary (max 2-3 sentences) including:
@@ -27,8 +27,16 @@ export async function analyzeVitals(vitals: { hr: number, spo2: number, temp: nu
     });
 
     return response.text;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini AI error:", error);
-    return "Failed to generate AI analysis.";
+    
+    // Provide a more helpful error message based on the API response
+    if (error?.status === 429) {
+      return "AI analysis failed: You have exceeded your API rate limit. Please wait a minute and try again.";
+    } else if (error?.status === 503) {
+      return "AI analysis failed: The AI model is currently experiencing high demand. Please try again in a few moments.";
+    }
+    
+    return `Failed to generate AI analysis: ${error?.message || "Unknown error occurred"}`;
   }
 }

@@ -313,7 +313,7 @@ export default function App() {
                       color="cyan" 
                     />
                     <VitalCard 
-                      title="Body Temp" 
+                      title="Hand Temp" 
                       value={liveData?.temperature || latest?.temperature || "--"} 
                       unit="°C" 
                       icon={Thermometer} 
@@ -325,7 +325,7 @@ export default function App() {
                       unit="" 
                       icon={Activity} 
                       color="pink" 
-                      trend={latest?.stress ? "Status" : undefined}
+                      trend={latest?.stress ? (latest.stress === 'Low' ? "Normal" : "Status") : undefined}
                     />
                   </div>
 
@@ -459,7 +459,7 @@ export default function App() {
                           <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
                             <div className="flex items-center gap-3">
                               <Thermometer className="text-pink-500" />
-                              <span className="font-bold text-slate-600 dark:text-slate-300">Temperature</span>
+                              <span className="font-bold text-slate-600 dark:text-slate-300">Hand Temperature</span>
                             </div>
                             <span className="text-2xl font-bold font-display text-slate-800 dark:text-white">{liveData.temperature} <span className="text-sm text-slate-400">°C</span></span>
                           </div>
@@ -738,7 +738,7 @@ export default function App() {
                     <input name="spo2" type="number" defaultValue="98" required className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border-none focus:ring-2 focus:ring-brand-blue/30" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Temperature (°C)</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Hand Temperature (°C)</label>
                     <input name="temp" type="number" step="0.1" defaultValue="36.6" required className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border-none focus:ring-2 focus:ring-brand-blue/30" />
                   </div>
                   <button type="submit" className="mt-4 w-full py-4 bg-brand-purple text-white rounded-2xl font-bold shadow-lg shadow-brand-purple/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
