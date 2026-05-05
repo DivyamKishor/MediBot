@@ -43,6 +43,13 @@ export default function App() {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Save selected profile to localStorage
+  useEffect(() => {
+    if (profile) {
+      localStorage.setItem('lastSelectedUserId', profile.userId);
+    }
+  }, [profile]);
+
   // Dark Mode Sync
   useEffect(() => {
     if (darkMode) {
@@ -66,7 +73,9 @@ export default function App() {
         setAllProfiles(profiles);
         
         if (profiles.length > 0) {
-          setProfile(profiles[0]);
+          const savedUserId = localStorage.getItem('lastSelectedUserId');
+          const savedProfile = profiles.find(p => p.userId === savedUserId);
+          setProfile(savedProfile || profiles[0]);
         } else {
           setIsProfileModalOpen(true);
         }
@@ -324,7 +333,7 @@ export default function App() {
                       value={latest?.stress || "--"} 
                       unit="" 
                       icon={Activity} 
-                      color="pink" 
+                      color={latest?.stress === 'Low' ? 'green' : latest?.stress === 'Mod' ? 'yellow' : latest?.stress === 'High' ? 'red' : 'pink'} 
                       trend={latest?.stress ? (latest.stress === 'Low' ? "Normal" : "Status") : undefined}
                     />
                   </div>

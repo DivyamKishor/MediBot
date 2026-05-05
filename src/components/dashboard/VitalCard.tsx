@@ -7,7 +7,7 @@ interface VitalCardProps {
   value: string | number;
   unit: string;
   icon: LucideIcon;
-  color: "blue" | "cyan" | "pink";
+  color: "blue" | "cyan" | "pink" | "green" | "yellow" | "red";
   trend?: string;
 }
 
@@ -18,10 +18,13 @@ export default function VitalCard({ title, value, unit, icon: Icon, color, trend
     pink: "text-vitals-temp",
   };
 
-  const labelColorClasses = {
+  const labelColorClasses: Record<string, string> = {
     blue: "text-rose-500",
     cyan: "text-blue-500",
     pink: "text-amber-500",
+    green: "text-emerald-500",
+    yellow: "text-amber-500",
+    red: "text-red-500",
   };
 
   return (

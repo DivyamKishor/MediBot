@@ -20,23 +20,37 @@ export async function analyzeVitals(vitals: { hr: number, spo2: number, temp: nu
     Add a short disclaimer at the end: *AI-generated, not medical advice.*
   `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ parts: [{ text: prompt }] }],
-    });
+  let retries = 3;
+  let delay = 1000;
 
-    return response.text;
-  } catch (error: any) {
-    console.error("Gemini AI error:", error);
-    
-    // Provide a more helpful error message based on the API response
-    if (error?.status === 429) {
-      return "AI analysis failed: You have exceeded your API rate limit. Please wait a minute and try again.";
-    } else if (error?.status === 503) {
-      return "AI analysis failed: The AI model is currently experiencing high demand. Please try again in a few moments.";
+  while (retries > 0) {
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ parts: [{ text: prompt }] }],
+      });
+
+      return response.text;
+    } catch (error: any) {
+      if ((error?.status === 429 || error?.status === 503) && retries > 1) {
+        retries--;
+        await new Promise(res => setTimeout(res, delay));
+        delay *= 2; // Exponential backoff
+        continue;
+      }
+
+      console.error("Gemini AI error:", error);
+      
+      // Provide a more helpful error message based on the API response
+      if (error?.status === 429) {
+        return "AI analysis failed: You have exceeded your API rate limit. Please wait a minute and try again.";
+      } else if (error?.status === 503) {
+        return "AI analysis failed: The AI model is currently experiencing high demand. Please try again in a few moments.";
+      }
+      
+      return `Failed to generate AI analysis: ${error?.message || "Unknown error occurred"}`;
     }
-    
-    return `Failed to generate AI analysis: ${error?.message || "Unknown error occurred"}`;
   }
+  
+  return "AI analysis failed: Unknown error occurred";
 }
