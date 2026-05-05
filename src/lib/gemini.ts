@@ -9,30 +9,20 @@ export async function analyzeVitals(vitals: { hr: number, spo2: number, temp: nu
   }
 
   const prompt = `
-    As a medical AI assistant for MediBot, analyze the following patient vitals and provide health recommendations.
+    As a medical AI assistant for MediBot, analyze these vitals briefly:
+    HR: ${vitals.hr} BPM, SpO2: ${vitals.spo2}%, Temp: ${vitals.temp}°C, Stress: ${vitals.stress || 'Not calculated'}.
+    Patient: ${patientData?.weight || 'Unknown'} kg, Blood Group: ${patientData?.bloodGroup || 'Unknown'}.
     
-    Current Vitals:
-    - Heart Rate: ${vitals.hr} BPM
-    - SpO2: ${vitals.spo2}%
-    - Body Temperature: ${vitals.temp} °C
-    - Stress Level: ${vitals.stress || 'Not calculated'}
+    Please provide a very short and sweet summary (max 2-3 sentences) including:
+    1. Status/Concerns.
+    2. Quick recommendation.
     
-    Patient Context:
-    - Weight: ${patientData?.weight || 'Unknown'} kg
-    - Blood Group: ${patientData?.bloodGroup || 'Unknown'}
-    
-    Please provide:
-    1. A summary of the patient's current status.
-    2. Any potential concerns based on these readings.
-    3. Health recommendations (lifestyle, hydration, rest, etc.).
-    
-    Keep the tone professional and reassuring. Use Markdown for formatting.
-    Note: Always include a disclaimer that this is AI-generated and not a replacement for professional medical advice.
+    Add a short disclaimer at the end: *AI-generated, not medical advice.*
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
     });
 

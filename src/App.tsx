@@ -9,9 +9,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, setDoc, doc, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, setDoc, doc, limit, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Heart, Droplets, Thermometer, Plus, UserPlus, Users, Rocket, MoreHorizontal, ArrowRight, BrainCircuit, Activity, Bluetooth, History } from 'lucide-react';
+import { Heart, Droplets, Thermometer, Plus, UserPlus, Users, Rocket, MoreHorizontal, ArrowRight, BrainCircuit, Activity, Bluetooth, History, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
@@ -207,6 +207,16 @@ export default function App() {
     setProfile(newProfile);
     setAllProfiles(prev => [...prev, newProfile]);
     setIsProfileModalOpen(false);
+  };
+
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!window.confirm('Are you sure you want to delete this record?')) return;
+    try {
+      await deleteDoc(doc(db, 'measurements', recordId));
+    } catch (e) {
+      console.error('Error deleting record:', e);
+      alert('Failed to delete record');
+    }
   };
 
   const runAIAnalysis = async () => {
@@ -523,10 +533,11 @@ export default function App() {
                               <th className="pb-3 px-4">SpO2</th>
                               <th className="pb-3 px-4">Temp</th>
                               <th className="pb-3 px-4">Stress</th>
+                              <th className="pb-3 px-4 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                            {measurements.slice(0, 10).map(m => (
+                            {measurements.slice().reverse().slice(0, 10).map(m => (
                               <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                 <td className="py-4 px-4 text-sm">{new Date(m.timestamp).toLocaleTimeString()}</td>
                                 <td className="py-4 px-4 font-medium"><span className="text-brand-blue">{m.heartRate}</span> BPM</td>
@@ -541,6 +552,15 @@ export default function App() {
                                   )}>
                                     {m.stress}
                                   </span>
+                                </td>
+                                <td className="py-4 px-4 text-right">
+                                  <button 
+                                    onClick={() => handleDeleteRecord(m.id)}
+                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Delete Record"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
                                 </td>
                               </tr>
                             ))}
