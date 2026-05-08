@@ -1,9 +1,5 @@
 # MediBot Dashboard
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/8876afb4-41ba-4ef0-a53f-52d265734f57
-
 ## How to Fork and Run Locally
 
 **Prerequisites:**
