@@ -343,36 +343,36 @@ export default function App() {
                     <ActivityChart data={measurements} />
                   </div>
 
-                  {/* AI Recommendation Card */}
-                  <div className="bg-indigo-900 rounded-2xl p-6 flex items-start gap-5 shadow-lg shadow-indigo-900/20 relative overflow-hidden group">
-                    <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center shrink-0 text-indigo-300 group-hover:scale-110 transition-transform">
-                      <BrainCircuit size={28} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-white font-bold text-base tracking-tight">MediBot AI Insights</h4>
-                        <button 
-                          onClick={runAIAnalysis} 
-                          disabled={isAnalyzing || measurements.length === 0}
-                          className="text-indigo-300 text-xs font-bold hover:text-white transition-colors flex items-center gap-1"
-                        >
-                          {isAnalyzing ? "Analyzing..." : "REFRESH ANALYSIS"}
-                          {!isAnalyzing && <ArrowRight size={14} />}
-                        </button>
-                      </div>
-                      <div className="text-indigo-100 text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
-                        {aiAnalysis ? (
-                          <ReactMarkdown>{aiAnalysis.content}</ReactMarkdown>
-                        ) : (
-                          <p className="opacity-80 italic">No insights available for the current vitals. Click refresh to generate.</p>
-                        )}
-                      </div>
-                    </div>
-                    {/* Decorative element */}
-                    <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
-                  </div>
-
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* AI Recommendation Card */}
+                    <div className="sleek-card p-6 flex items-start gap-5 relative overflow-hidden group">
+                      <div className="w-12 h-12 bg-brand-purple/10 dark:bg-brand-purple/20 rounded-xl flex items-center justify-center shrink-0 text-brand-purple group-hover:scale-110 transition-transform">
+                        <BrainCircuit size={28} />
+                      </div>
+                      <div className="flex-1 relative z-10 flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">MediBot AI Insights</h3>
+                          <button 
+                            onClick={runAIAnalysis} 
+                            disabled={isAnalyzing || measurements.length === 0}
+                            className="text-brand-purple text-[10px] font-bold tracking-widest hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex items-center gap-1 uppercase"
+                          >
+                            {isAnalyzing ? "Analyzing..." : "REFRESH ANALYSIS"}
+                            {!isAnalyzing && <ArrowRight size={14} />}
+                          </button>
+                        </div>
+                        <div className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                          {aiAnalysis ? (
+                            <ReactMarkdown>{aiAnalysis.content}</ReactMarkdown>
+                          ) : (
+                            <p className="opacity-80 italic">No insights available for the current vitals. Click refresh to generate.</p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Decorative element */}
+                      <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-brand-purple/5 dark:bg-brand-purple/10 rounded-full blur-3xl pointer-events-none"></div>
+                    </div>
+
                      {/* Treatment Card */}
                      <div className="sleek-card p-6 flex flex-col gap-6">
                       <div className="flex items-center justify-between">
@@ -542,7 +542,6 @@ export default function App() {
                               <th className="pb-3 px-4">SpO2</th>
                               <th className="pb-3 px-4">Temp</th>
                               <th className="pb-3 px-4">Stress</th>
-                              <th className="pb-3 px-4 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -561,15 +560,6 @@ export default function App() {
                                   )}>
                                     {m.stress}
                                   </span>
-                                </td>
-                                <td className="py-4 px-4 text-right">
-                                  <button 
-                                    onClick={() => handleDeleteRecord(m.id)}
-                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                    title="Delete Record"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
                                 </td>
                               </tr>
                             ))}
@@ -598,6 +588,7 @@ export default function App() {
                           <th className="px-6 py-4">Temp</th>
                           <th className="px-6 py-4">Stress</th>
                           <th className="px-6 py-4">Type</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -618,6 +609,15 @@ export default function App() {
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-400 capitalize">{m.type}</td>
+                            <td className="px-6 py-4 text-right">
+                              <button 
+                                onClick={() => handleDeleteRecord(m.id)}
+                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                title="Delete Record"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -628,53 +628,55 @@ export default function App() {
             </div>
 
             {/* Right Sidebar Area */}
-            <div className="w-96 flex flex-col gap-6 py-6">
-              <div className="sleek-card p-4">
-                <Calendar measurements={measurements} />
-              </div>
+            {currentView === 'dashboard' && (
+              <div className="w-96 flex flex-col gap-6 py-6">
+                <div className="sleek-card p-4">
+                  <Calendar measurements={measurements} />
+                </div>
 
-              <div className="sleek-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-display font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Attending Physicians</h3>
-                  <button className="text-brand-indigo text-[10px] font-bold tracking-widest">SEE ALL</button>
+                <div className="sleek-card p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-display font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Attending Physicians</h3>
+                    <button className="text-brand-indigo text-[10px] font-bold tracking-widest">SEE ALL</button>
+                  </div>
+                  <div className="flex items-center gap-4">
+                     {[
+                      { name: 'Dr. Aurelien', seed: 'Aurelien', specialty: 'Cardiology' },
+                      { name: 'Dr. Siamak', seed: 'Siamak', specialty: 'Therapist' },
+                      { name: 'Dr. Angel', seed: 'Angel', specialty: 'Surgeon' },
+                      { name: 'Dr. Manuel', seed: 'Manuel', specialty: 'General' }
+                     ].slice(0, 4).map(doc => (
+                       <div key={doc.name} className="flex flex-col items-center gap-1.5 group cursor-pointer">
+                          <div className="w-12 h-12 rounded-full border-2 border-white dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
+                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${doc.seed}`} alt={doc.name} className="w-full h-full" />
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-500 text-center leading-tight whitespace-nowrap">{doc.name.split('. ')[1]}</span>
+                       </div>
+                     ))}
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                   {[
-                    { name: 'Dr. Aurelien', seed: 'Aurelien', specialty: 'Cardiology' },
-                    { name: 'Dr. Siamak', seed: 'Siamak', specialty: 'Therapist' },
-                    { name: 'Dr. Angel', seed: 'Angel', specialty: 'Surgeon' },
-                    { name: 'Dr. Manuel', seed: 'Manuel', specialty: 'General' }
-                   ].slice(0, 4).map(doc => (
-                     <div key={doc.name} className="flex flex-col items-center gap-1.5 group cursor-pointer">
-                        <div className="w-12 h-12 rounded-full border-2 border-white dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
-                          <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${doc.seed}`} alt={doc.name} className="w-full h-full" />
-                        </div>
-                        <span className="text-[9px] font-bold text-slate-500 text-center leading-tight whitespace-nowrap">{doc.name.split('. ')[1]}</span>
-                     </div>
-                   ))}
-                </div>
-              </div>
 
-              <div className="sleek-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-display font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Vitals Detail</h3>
-                  <button className="text-brand-indigo text-[10px] font-bold tracking-widest">SEE ALL</button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Blood Group', value: profile?.bloodGroup || 'O Negative' },
-                    { label: 'Height', value: `${profile?.height || 170} CM` },
-                    { label: 'Weight', value: `${profile?.weight || 70} KG` },
-                    { label: 'Age/Sex', value: `32 / M` }
-                  ].map((det, idx) => (
-                    <div key={idx} className="flex flex-col gap-0.5 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/50">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{det.label}</span>
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{det.value}</span>
-                    </div>
-                  ))}
+                <div className="sleek-card p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-display font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Vitals Detail</h3>
+                    <button className="text-brand-indigo text-[10px] font-bold tracking-widest">SEE ALL</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Blood Group', value: profile?.bloodGroup || 'O Negative' },
+                      { label: 'Height', value: `${profile?.height || 170} CM` },
+                      { label: 'Weight', value: `${profile?.weight || 70} KG` },
+                      { label: 'Age/Sex', value: `32 / M` }
+                    ].map((det, idx) => (
+                      <div key={idx} className="flex flex-col gap-0.5 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/50">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{det.label}</span>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{det.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </main>
 
