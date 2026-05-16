@@ -1,4 +1,4 @@
-import { Search, Bell, Sun, Moon, Bluetooth, Plus, UserPlus, Users } from "lucide-react";
+import { Search, Bell, Sun, Moon, Bluetooth, Plus, UserPlus, Users, Trash2 } from "lucide-react";
 import { UserProfile } from "../../types";
 import { cn } from "../../lib/utils";
 
@@ -13,11 +13,12 @@ interface NavbarProps {
   currentUser: UserProfile | null;
   users: UserProfile[];
   onSwitchUser: (user: UserProfile) => void;
+  onDeleteUser: (userId: string) => void;
 }
 
 export default function Navbar({ 
   darkMode, setDarkMode, isConnecting, isConnected, onConnect, 
-  onManualData, onNewProfile, currentUser, users, onSwitchUser 
+  onManualData, onNewProfile, currentUser, users, onSwitchUser, onDeleteUser
 }: NavbarProps) {
   return (
     <div className="h-16 flex items-center justify-between px-6 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-40">
@@ -79,21 +80,29 @@ export default function Navbar({
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-2">Profiles</p>
               <div className="flex flex-col gap-1 max-h-48 overflow-y-auto scrollbar-hide">
                 {users.map(user => (
-                  <button 
-                    key={user.userId} 
-                    onClick={() => onSwitchUser(user)}
-                    className={cn(
-                      "flex items-center gap-3 p-2 rounded-lg transition-all",
-                      currentUser?.userId === user.userId ? "bg-indigo-50 dark:bg-brand-indigo/10 text-brand-indigo" : "hover:bg-slate-50 dark:hover:bg-slate-700"
-                    )}
-                  >
-                    <img 
-                      src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`} 
-                      alt={user.name} 
-                      className="w-7 h-7 rounded-full"
-                    />
-                    <span className="text-sm font-medium">{user.name}</span>
-                  </button>
+                  <div key={user.userId} className={cn(
+                    "flex items-center justify-between p-2 rounded-lg transition-all group/item",
+                    currentUser?.userId === user.userId ? "bg-indigo-50 dark:bg-brand-indigo/10" : "hover:bg-slate-50 dark:hover:bg-slate-700"
+                  )}>
+                    <button 
+                      onClick={() => onSwitchUser(user)}
+                      className={cn("flex items-center gap-3 flex-1", currentUser?.userId === user.userId ? "text-brand-indigo" : "")}
+                    >
+                      <img 
+                        src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`} 
+                        alt={user.name} 
+                        className="w-7 h-7 rounded-full"
+                      />
+                      <span className="text-sm font-medium">{user.name}</span>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDeleteUser(user.userId); }}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors opacity-0 group-hover/item:opacity-100"
+                      title="Delete Profile"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

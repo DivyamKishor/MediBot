@@ -49,7 +49,7 @@ export default function App() {
   const filteredHistory = useMemo(() => {
     const now = new Date();
     let filtered = [...measurements];
-    
+
     if (historyFilter === 'week') {
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       filtered = filtered.filter(m => new Date(m.timestamp) >= oneWeekAgo);
@@ -70,7 +70,7 @@ export default function App() {
         filtered = filtered.filter(m => new Date(m.timestamp) <= toDate);
       }
     }
-    
+
     return filtered.reverse();
   }, [measurements, historyFilter, manualRange]);
 
@@ -100,9 +100,9 @@ export default function App() {
         // Fetch all profiles for this user
         const q = query(collection(db, 'users'), where('authUid', '==', u.uid));
         const snap = await getDocs(q);
-        const profiles = snap.docs.map(d => d.data() as UserProfile);
+        const profiles = snap.docs.map(d => d.data() as UserProfile).filter(p => !p.isDeleted);
         setAllProfiles(profiles);
-        
+
         if (profiles.length > 0) {
           const savedUserId = localStorage.getItem('lastSelectedUserId');
           const savedProfile = profiles.find(p => p.userId === savedUserId);
@@ -117,7 +117,7 @@ export default function App() {
   // Measurement Sync
   useEffect(() => {
     if (!profile) return;
-    
+
     const q = query(
       collection(db, 'measurements'),
       where('authUid', '==', user?.uid),
@@ -135,7 +135,7 @@ export default function App() {
   // AI Analysis Sync
   useEffect(() => {
     if (!profile || !user || measurements.length === 0) return;
-    
+
     const latest = measurements[measurements.length - 1];
     const q = query(
       collection(db, 'analyses'),
@@ -164,7 +164,7 @@ export default function App() {
 
   const handleFinalData = useCallback(async (data: MediData) => {
     if (!profile) return;
-    
+
     const measurement: VitalMeasurement = {
       userId: profile.userId,
       authUid: user?.uid || '',
@@ -207,7 +207,7 @@ export default function App() {
   const handleManualSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!profile) return;
-    
+
     const formData = new FormData(e.currentTarget);
     const data: VitalMeasurement = {
       userId: profile.userId,
@@ -227,11 +227,11 @@ export default function App() {
   const handleCreateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return;
-    
+
     const formData = new FormData(e.currentTarget);
     const name = formData.get('name') as string;
     const userId = crypto.randomUUID();
-    
+
     const newProfile: any = {
       userId,
       authUid: user.uid,
@@ -259,16 +259,65 @@ export default function App() {
     }
   };
 
+  const handleDeleteProfile = async (userIdToDelete: string) => {
+    if (!user) return;
+    if (!window.confirm('Are you sure you want to delete this profile and all its data? This action cannot be undone.')) return;
+
+    try {
+      // Soft-delete user document to bypass missing 'delete' permission in remote firestore.rules
+      const profileToUpdate = allProfiles.find(p => p.userId === userIdToDelete);
+      if (profileToUpdate) {
+        await setDoc(doc(db, 'users', userIdToDelete), { 
+          ...profileToUpdate, 
+          authUid: user.uid, 
+          isDeleted: true 
+        }, { merge: true });
+      }
+
+      const mQuery = query(
+        collection(db, 'measurements'),
+        where('userId', '==', userIdToDelete),
+        where('authUid', '==', user.uid)
+      );
+      const mSnap = await getDocs(mQuery);
+      const mPromises = mSnap.docs.map(d => deleteDoc(doc(db, 'measurements', d.id)));
+      await Promise.all(mPromises);
+
+      const aQuery = query(
+        collection(db, 'analyses'),
+        where('userId', '==', userIdToDelete),
+        where('authUid', '==', user.uid)
+      );
+      const aSnap = await getDocs(aQuery);
+      const aPromises = aSnap.docs.map(d => deleteDoc(doc(db, 'analyses', d.id)));
+      await Promise.all(aPromises);
+
+      const updatedProfiles = allProfiles.filter(p => p.userId !== userIdToDelete);
+      setAllProfiles(updatedProfiles);
+      if (profile?.userId === userIdToDelete) {
+        if (updatedProfiles.length > 0) {
+          setProfile(updatedProfiles[0]);
+        } else {
+          setProfile(null);
+          setIsProfileModalOpen(true);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error deleting profile:', error);
+      alert('Failed to delete profile: ' + error.message);
+    }
+  };
+
   const runAIAnalysis = async () => {
     if (!profile || measurements.length === 0) return;
     const latest = measurements[measurements.length - 1];
-    
+
     setIsAnalyzing(true);
     const analysisText = await analyzeVitals(
       { hr: latest.heartRate, spo2: latest.spo2, temp: latest.temperature, stress: latest.stress },
       { weight: profile.weight, bloodGroup: profile.bloodGroup }
     );
-    
+
     await addDoc(collection(db, 'analyses'), {
       userId: profile.userId,
       authUid: user?.uid || '',
@@ -290,7 +339,7 @@ export default function App() {
             <h1 className="text-4xl font-display font-bold mb-2">MediBot Dashboard</h1>
             <p className="text-slate-500">Connect your MediBot device to track and analyze your vitals in real-time.</p>
           </div>
-          <button 
+          <button
             onClick={signInWithGoogle}
             className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-800 transition-all hover:scale-105"
           >
@@ -308,11 +357,11 @@ export default function App() {
     <div className={cn("min-h-screen", darkMode && "dark")}>
       <div className="dark:bg-slate-950 transition-colors duration-300 min-h-screen">
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
-        
+
         <main className={cn("pl-20 transition-all", isProfileModalOpen || isManualModalOpen ? "blur-sm" : "")}>
-          <Navbar 
-            darkMode={darkMode} 
-            setDarkMode={setDarkMode} 
+          <Navbar
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
             isConnecting={isConnecting}
             isConnected={isConnected}
             onConnect={handleConnect}
@@ -321,12 +370,13 @@ export default function App() {
             currentUser={profile}
             users={allProfiles}
             onSwitchUser={setProfile}
+            onDeleteUser={handleDeleteProfile}
           />
 
           <div className="px-8 pb-8 flex gap-8">
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col gap-6 py-6">
-              
+
               {currentView === 'dashboard' && (
                 <>
                   <div className="flex items-center gap-2 mb-2">
@@ -337,34 +387,34 @@ export default function App() {
 
                   {/* Vitals Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <VitalCard 
-                      title="Heart Rate" 
-                      value={liveData?.heartRate || latest?.heartRate || "--"} 
-                      unit="BPM" 
-                      icon={Heart} 
+                    <VitalCard
+                      title="Heart Rate"
+                      value={liveData?.heartRate || latest?.heartRate || "--"}
+                      unit="BPM"
+                      icon={Heart}
                       color="blue"
                       trend={liveData?.heartRate ? "Live" : (latest?.heartRate ? "Stable" : undefined)}
                     />
-                    <VitalCard 
-                      title="Oxygen SpO2" 
-                      value={liveData?.spo2 || latest?.spo2 || "--"} 
-                      unit="%" 
-                      icon={Droplets} 
-                      color="cyan" 
+                    <VitalCard
+                      title="Oxygen SpO2"
+                      value={liveData?.spo2 || latest?.spo2 || "--"}
+                      unit="%"
+                      icon={Droplets}
+                      color="cyan"
                     />
-                    <VitalCard 
-                      title="Hand Temp" 
-                      value={liveData?.temperature || latest?.temperature || "--"} 
-                      unit="°C" 
-                      icon={Thermometer} 
-                      color="pink" 
+                    <VitalCard
+                      title="Hand Temp"
+                      value={liveData?.temperature || latest?.temperature || "--"}
+                      unit="°C"
+                      icon={Thermometer}
+                      color="pink"
                     />
-                    <VitalCard 
-                      title="Stress Level" 
-                      value={latest?.stress || "--"} 
-                      unit="" 
-                      icon={Activity} 
-                      color={latest?.stress === 'Low' ? 'green' : latest?.stress === 'Mod' ? 'yellow' : latest?.stress === 'High' ? 'red' : 'pink'} 
+                    <VitalCard
+                      title="Stress Level"
+                      value={latest?.stress || "--"}
+                      unit=""
+                      icon={Activity}
+                      color={latest?.stress === 'Low' ? 'green' : latest?.stress === 'Mod' ? 'yellow' : latest?.stress === 'High' ? 'red' : 'pink'}
                       trend={latest?.stress ? (latest.stress === 'Low' ? "Normal" : "Status") : undefined}
                     />
                   </div>
@@ -383,8 +433,8 @@ export default function App() {
                       <div className="flex-1 relative z-10 flex flex-col h-full">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">MediBot AI Insights</h3>
-                          <button 
-                            onClick={runAIAnalysis} 
+                          <button
+                            onClick={runAIAnalysis}
                             disabled={isAnalyzing || measurements.length === 0}
                             className="text-brand-purple text-[10px] font-bold tracking-widest hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex items-center gap-1 uppercase"
                           >
@@ -404,13 +454,13 @@ export default function App() {
                       <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-brand-purple/5 dark:bg-brand-purple/10 rounded-full blur-3xl pointer-events-none"></div>
                     </div>
 
-                     {/* Treatment Card */}
-                     <div className="sleek-card p-6 flex flex-col gap-6">
+                    {/* Treatment Card */}
+                    <div className="sleek-card p-6 flex flex-col gap-6">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Daily Regiment</h3>
                         <button className="text-slate-400 hover:text-brand-indigo transition-colors"><MoreHorizontal size={20} /></button>
                       </div>
-                      
+
                       <div className="flex flex-col gap-3">
                         {[
                           { title: 'Hydration Goal', sub: '2.5L Water Intake', icon: Droplets, color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' },
@@ -455,13 +505,13 @@ export default function App() {
                       <h3 className="text-2xl font-bold font-display text-slate-800 dark:text-white">MediBot Device</h3>
                       <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-2">Connect to your MediBot hardware to stream real-time vitals and record your health sessions.</p>
                     </div>
-                    <button 
+                    <button
                       onClick={handleConnect}
                       disabled={isConnecting || isConnected}
                       className={cn(
                         "mt-4 px-8 py-4 rounded-2xl font-bold text-white transition-all shadow-xl flex items-center gap-3",
                         isConnected ? "bg-emerald-500 cursor-default" :
-                        isConnecting ? "bg-indigo-400" : "bg-brand-indigo hover:bg-indigo-600 shadow-indigo-500/30 hover:scale-105 active:scale-95"
+                          isConnecting ? "bg-indigo-400" : "bg-brand-indigo hover:bg-indigo-600 shadow-indigo-500/30 hover:scale-105 active:scale-95"
                       )}
                     >
                       <Bluetooth size={24} />
@@ -479,7 +529,7 @@ export default function App() {
                         </div>
                         {liveData && <span className="px-3 py-1 bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 text-[10px] font-bold uppercase rounded-full animate-pulse">Streaming</span>}
                       </div>
-                      
+
                       {liveData ? (
                         <div className="grid grid-cols-1 gap-4">
                           <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
@@ -521,9 +571,9 @@ export default function App() {
                           <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100">AI Health Analysis</h3>
                         </div>
                       </div>
-                      
+
                       <div className="flex-1 flex flex-col relative z-10 gap-4">
-                        <button 
+                        <button
                           onClick={runAIAnalysis}
                           disabled={isAnalyzing || measurements.length === 0}
                           className="w-full py-4 bg-brand-purple hover:bg-purple-600 text-white rounded-2xl font-bold shadow-lg shadow-purple-500/30 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex justify-center items-center gap-2"
@@ -540,7 +590,7 @@ export default function App() {
                             </>
                           )}
                         </button>
-                        
+
                         <div className="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 overflow-y-auto min-h-[200px]">
                           {aiAnalysis ? (
                             <div className="prose prose-sm dark:prose-invert">
@@ -548,7 +598,7 @@ export default function App() {
                             </div>
                           ) : (
                             <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                              <p className="text-center">No analysis yet.<br/>Click above to generate insights.</p>
+                              <p className="text-center">No analysis yet.<br />Click above to generate insights.</p>
                             </div>
                           )}
                         </div>
@@ -562,7 +612,7 @@ export default function App() {
                       <History className="text-brand-blue" size={24} />
                       <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100">Session Records</h3>
                     </div>
-                    
+
                     {measurements.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
@@ -586,8 +636,8 @@ export default function App() {
                                   <span className={cn(
                                     "px-2 py-1 rounded-lg text-xs font-bold",
                                     m.stress === 'Low' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-                                    m.stress === 'Mod' ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" :
-                                    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                      m.stress === 'Mod' ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" :
+                                        "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                                   )}>
                                     {m.stress}
                                   </span>
@@ -611,7 +661,7 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <h1 className="text-5xl font-display font-bold">Patient History</h1>
                     <div className="relative">
-                      <button 
+                      <button
                         onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
                         className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all font-bold text-sm"
                       >
@@ -624,7 +674,7 @@ export default function App() {
                         {isFilterDropdownOpen && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsFilterDropdownOpen(false)}></div>
-                            <motion.div 
+                            <motion.div
                               initial={{ opacity: 0, y: 10, scale: 0.95 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -659,8 +709,8 @@ export default function App() {
                                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">From Date</label>
                                     <div className="relative">
                                       <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                                      <input 
-                                        type="date" 
+                                      <input
+                                        type="date"
                                         value={manualRange.from}
                                         onChange={(e) => setManualRange(prev => ({ ...prev, from: e.target.value }))}
                                         className="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-brand-indigo/30 outline-none"
@@ -671,15 +721,15 @@ export default function App() {
                                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">To Date</label>
                                     <div className="relative">
                                       <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                                      <input 
-                                        type="date" 
+                                      <input
+                                        type="date"
                                         value={manualRange.to}
                                         onChange={(e) => setManualRange(prev => ({ ...prev, to: e.target.value }))}
                                         className="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-brand-indigo/30 outline-none"
                                       />
                                     </div>
                                   </div>
-                                  <button 
+                                  <button
                                     onClick={() => setIsFilterDropdownOpen(false)}
                                     className="w-full py-2 bg-brand-indigo text-white rounded-lg text-xs font-bold hover:bg-brand-indigo-hover transition-all"
                                   >
@@ -717,15 +767,15 @@ export default function App() {
                               <span className={cn(
                                 "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
                                 m.stress === 'Low' ? "bg-green-100 text-green-600" :
-                                m.stress === 'Mod' ? "bg-orange-100 text-orange-600" :
-                                "bg-red-100 text-red-600"
+                                  m.stress === 'Mod' ? "bg-orange-100 text-orange-600" :
+                                    "bg-red-100 text-red-600"
                               )}>
                                 {m.stress}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-400 capitalize">{m.type}</td>
                             <td className="px-6 py-4 text-right">
-                              <button 
+                              <button
                                 onClick={() => handleDeleteRecord(m.id)}
                                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                 title="Delete Record"
@@ -755,19 +805,19 @@ export default function App() {
                     <button className="text-brand-indigo text-[10px] font-bold tracking-widest">SEE ALL</button>
                   </div>
                   <div className="flex items-center gap-4">
-                     {[
+                    {[
                       { name: 'Dr. Aurelien', seed: 'Aurelien', specialty: 'Cardiology' },
                       { name: 'Dr. Siamak', seed: 'Siamak', specialty: 'Therapist' },
                       { name: 'Dr. Angel', seed: 'Angel', specialty: 'Surgeon' },
                       { name: 'Dr. Manuel', seed: 'Manuel', specialty: 'General' }
-                     ].slice(0, 4).map(doc => (
-                       <div key={doc.name} className="flex flex-col items-center gap-1.5 group cursor-pointer">
-                          <div className="w-12 h-12 rounded-full border-2 border-white dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
-                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${doc.seed}`} alt={doc.name} className="w-full h-full" />
-                          </div>
-                          <span className="text-[9px] font-bold text-slate-500 text-center leading-tight whitespace-nowrap">{doc.name.split('. ')[1]}</span>
-                       </div>
-                     ))}
+                    ].slice(0, 4).map(doc => (
+                      <div key={doc.name} className="flex flex-col items-center gap-1.5 group cursor-pointer">
+                        <div className="w-12 h-12 rounded-full border-2 border-white dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
+                          <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${doc.seed}`} alt={doc.name} className="w-full h-full" />
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-500 text-center leading-tight whitespace-nowrap">{doc.name.split('. ')[1]}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -799,7 +849,7 @@ export default function App() {
         <AnimatePresence>
           {isProfileModalOpen && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
@@ -844,7 +894,7 @@ export default function App() {
         <AnimatePresence>
           {isManualModalOpen && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}

@@ -6,6 +6,7 @@ export interface UserProfile {
   weight?: number;
   avatarUrl?: string;
   createdAt: string;
+  isDeleted?: boolean;
 }
 
 export interface VitalMeasurement {
