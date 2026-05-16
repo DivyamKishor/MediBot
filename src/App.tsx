@@ -253,7 +253,7 @@ export default function App() {
   const handleEditProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!profile) return;
-    
+
     const formData = new FormData(e.currentTarget);
     const updatedProfile = {
       ...profile,
@@ -295,10 +295,10 @@ export default function App() {
       // Soft-delete user document to bypass missing 'delete' permission in remote firestore.rules
       const profileToUpdate = allProfiles.find(p => p.userId === userIdToDelete);
       if (profileToUpdate) {
-        await setDoc(doc(db, 'users', userIdToDelete), { 
-          ...profileToUpdate, 
-          authUid: user.uid, 
-          isDeleted: true 
+        await setDoc(doc(db, 'users', userIdToDelete), {
+          ...profileToUpdate,
+          authUid: user.uid,
+          isDeleted: true
         }, { merge: true });
       }
 
@@ -336,6 +336,14 @@ export default function App() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
   const runAIAnalysis = async () => {
     if (!profile || measurements.length === 0) return;
     const latest = measurements[measurements.length - 1];
@@ -364,7 +372,7 @@ export default function App() {
             <Heart size={40} fill="currentColor" />
           </div>
           <div>
-            <h1 className="text-4xl font-display font-bold mb-2">MediBot Dashboard</h1>
+            <h1 className="text-4xl font-display font-bold mb-2">MediBot</h1>
             <p className="text-slate-500">Connect your MediBot device to track and analyze your vitals in real-time.</p>
           </div>
           <button
@@ -384,7 +392,7 @@ export default function App() {
   return (
     <div className={cn("min-h-screen", darkMode && "dark")}>
       <div className="dark:bg-slate-950 transition-colors duration-300 min-h-screen">
-        <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+        <Sidebar currentView={currentView} onViewChange={setCurrentView} onSignOut={handleSignOut} />
 
         <main className={cn("pl-20 transition-all", isProfileModalOpen || isManualModalOpen ? "blur-sm" : "")}>
           <Navbar

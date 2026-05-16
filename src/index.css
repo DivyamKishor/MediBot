@@ -21,6 +21,17 @@
   --color-vitals-spo2: #3b82f6;
   --color-vitals-temp: #f59e0b;
   --color-vitals-stress: #6366f1;
+
+  --animate-heartbeat: heartbeat 1.5s ease-in-out infinite;
+
+  @keyframes heartbeat {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.15);
+    }
+  }
 }
 
 @layer base {
