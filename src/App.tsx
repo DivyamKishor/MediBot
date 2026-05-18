@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, setDoc, doc, limit, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Heart, Droplets, Thermometer, Plus, UserPlus, Users, Rocket, MoreHorizontal, ArrowRight, BrainCircuit, Activity, Bluetooth, History, Trash2, ListFilter, ChevronDown, Calendar as CalendarIcon, Check, Stethoscope, Mail, Phone, Download, Send, Copy, ExternalLink, Link } from 'lucide-react';
+import { Heart, Droplets, Thermometer, Plus, UserPlus, Users, Rocket, MoreHorizontal, ArrowRight, BrainCircuit, Activity, Bluetooth, History, Trash2, ListFilter, ChevronDown, Calendar as CalendarIcon, Check, Stethoscope, Mail, Phone, Download, Send, Copy, ExternalLink, Link, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
@@ -47,6 +47,7 @@ export default function App() {
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [measurementStatus, setMeasurementStatus] = useState<'idle' | 'measuring' | 'complete' | 'error'>('idle');
   const [historyFilter, setHistoryFilter] = useState<'all' | 'week' | 'month' | 'year' | 'manual'>('all');
   const [manualRange, setManualRange] = useState({ from: '', to: '' });
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
@@ -175,6 +176,16 @@ export default function App() {
     });
   }, [profile, measurements]);
 
+  // Finger Removed Timeout Logic
+  useEffect(() => {
+    if (isConnected && measurementStatus === 'measuring') {
+      const timer = setTimeout(() => {
+        setMeasurementStatus('error');
+      }, 4000); // 4 seconds without new data = finger removed
+      return () => clearTimeout(timer);
+    }
+  }, [liveData, isConnected, measurementStatus]);
+
   // Bluetooth Callbacks
   const handleLiveData = useCallback((data: MediData) => {
     setLiveData({
@@ -182,10 +193,12 @@ export default function App() {
       spo2: data.spo2,
       temperature: data.temp,
     });
+    setMeasurementStatus('measuring');
   }, []);
 
   const handleFinalData = useCallback(async (data: MediData) => {
     if (!profile) return;
+    setMeasurementStatus('complete');
 
     const measurement: VitalMeasurement = {
       userId: profile.userId,
@@ -216,13 +229,16 @@ export default function App() {
       await bluetoothService.connect(handleLiveData, handleFinalData, () => {
         setIsConnecting(false);
         setIsConnected(false);
+        setMeasurementStatus('idle');
       });
       setIsConnecting(false);
       setIsConnected(true);
+      setMeasurementStatus('idle');
     } catch (e) {
       alert("Bluetooth failed: " + (e instanceof Error ? e.message : "Internal error"));
       setIsConnecting(false);
       setIsConnected(false);
+      setMeasurementStatus('idle');
     }
   };
 
@@ -650,101 +666,87 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Live Data */}
-                    <div className="sleek-card p-6 flex flex-col gap-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Activity className="text-rose-500" size={24} />
-                          <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100">Live Data</h3>
-                        </div>
-                        {liveData && <span className="px-3 py-1 bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 text-[10px] font-bold uppercase rounded-full animate-pulse">Streaming</span>}
+                  {/* Live Data */}
+                  <div className="sleek-card p-6 flex flex-col gap-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Activity className="text-rose-500" size={24} />
+                        <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100">Live Data</h3>
                       </div>
-
-                      {liveData ? (
-                        <div className="grid grid-cols-1 gap-4">
-                          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                            <div className="flex items-center gap-3">
-                              <Heart className="text-brand-blue" />
-                              <span className="font-bold text-slate-600 dark:text-slate-300">Heart Rate</span>
-                            </div>
-                            <span className="text-2xl font-bold font-display text-slate-800 dark:text-white">{liveData.heartRate} <span className="text-sm text-slate-400">BPM</span></span>
-                          </div>
-                          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                            <div className="flex items-center gap-3">
-                              <Droplets className="text-cyan-500" />
-                              <span className="font-bold text-slate-600 dark:text-slate-300">SpO2</span>
-                            </div>
-                            <span className="text-2xl font-bold font-display text-slate-800 dark:text-white">{liveData.spo2} <span className="text-sm text-slate-400">%</span></span>
-                          </div>
-                          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                            <div className="flex items-center gap-3">
-                              <Thermometer className="text-pink-500" />
-                              <span className="font-bold text-slate-600 dark:text-slate-300">Hand Temperature</span>
-                            </div>
-                            <span className="text-2xl font-bold font-display text-slate-800 dark:text-white">{liveData.temperature} <span className="text-sm text-slate-400">°C</span></span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center py-12 text-slate-400">
-                          <Activity size={48} className="mb-4 opacity-20" />
-                          <p>Waiting for connection...</p>
-                        </div>
-                      )}
+                      {measurementStatus === 'measuring' && <span className="px-3 py-1 bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 text-[10px] font-bold uppercase rounded-full animate-pulse">Streaming</span>}
                     </div>
 
-                    {/* AI Health Analysis */}
-                    <div className="sleek-card p-6 flex flex-col gap-6 relative overflow-hidden">
-                      <div className="absolute -right-10 -top-10 w-40 h-40 bg-brand-purple/10 dark:bg-brand-purple/20 rounded-full blur-3xl pointer-events-none"></div>
-                      <div className="flex items-center justify-between relative z-10">
-                        <div className="flex items-center gap-2">
-                          <BrainCircuit className="text-brand-purple" size={24} />
-                          <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100">AI Health Analysis</h3>
+                    {measurementStatus === 'measuring' || (liveData && measurementStatus === 'error') ? (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-3xl gap-4 text-center">
+                          <div className="flex items-center gap-2">
+                            <Heart className="text-brand-blue" size={24} />
+                            <span className="font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-xs">Heart Rate</span>
+                          </div>
+                          <span className="text-6xl font-bold font-display text-slate-800 dark:text-white">{liveData?.heartRate || '--'} <span className="text-2xl text-slate-400">BPM</span></span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-3xl gap-4 text-center">
+                          <div className="flex items-center gap-2">
+                            <Droplets className="text-cyan-500" size={24} />
+                            <span className="font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-xs">SpO2</span>
+                          </div>
+                          <span className="text-6xl font-bold font-display text-slate-800 dark:text-white">{liveData?.spo2 || '--'} <span className="text-2xl text-slate-400">%</span></span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-3xl gap-4 text-center">
+                          <div className="flex items-center gap-2">
+                            <Thermometer className="text-pink-500" size={24} />
+                            <span className="font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-xs">Hand Temp</span>
+                          </div>
+                          <span className="text-6xl font-bold font-display text-slate-800 dark:text-white">{liveData?.temperature || '--'} <span className="text-2xl text-slate-400">°C</span></span>
                         </div>
                       </div>
-
-                      <div className="flex-1 flex flex-col relative z-10 gap-4">
-                        <button
-                          onClick={runAIAnalysis}
-                          disabled={isAnalyzing || measurements.length === 0}
-                          className="w-full py-4 bg-brand-purple hover:bg-purple-600 text-white rounded-2xl font-bold shadow-lg shadow-purple-500/30 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex justify-center items-center gap-2"
-                        >
-                          {isAnalyzing ? (
-                            <>
-                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              Analyzing...
-                            </>
-                          ) : (
-                            <>
-                              <BrainCircuit size={20} />
-                              Analyze Session Records
-                            </>
-                          )}
+                    ) : measurementStatus === 'complete' ? (
+                      <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+                        <div className="w-20 h-20 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full flex items-center justify-center mb-6">
+                          <Check size={40} />
+                        </div>
+                        <h3 className="text-2xl font-bold font-display text-slate-800 dark:text-white mb-2">Measurement Complete!</h3>
+                        <p className="text-slate-500 max-w-md mx-auto mb-8">Your vital signs have been successfully recorded and saved to your session records.</p>
+                        <button onClick={() => setMeasurementStatus('idle')} className="px-8 py-3 bg-brand-indigo text-white font-bold rounded-xl hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/30">
+                          Measure Again
                         </button>
+                      </div>
+                    ) : isConnected ? (
+                      <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+                        <div className="w-20 h-20 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-full flex items-center justify-center mb-6">
+                          <Activity size={40} className="animate-pulse" />
+                        </div>
+                        <h3 className="text-2xl font-bold font-display text-slate-800 dark:text-white mb-2">Ready to Measure</h3>
+                        <p className="text-slate-500 max-w-md mx-auto">Please place your finger on the MediBot sensor to begin the live reading.</p>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-400">
+                        <Bluetooth size={48} className="mb-4 opacity-20" />
+                        <p>Waiting for MediBot connection...</p>
+                      </div>
+                    )}
 
-                        <div className="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 overflow-y-auto min-h-[200px]">
-                          {aiAnalysis ? (
-                            <div className="prose prose-sm dark:prose-invert">
-                              <ReactMarkdown>{aiAnalysis.content}</ReactMarkdown>
-                            </div>
-                          ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                              <p className="text-center">No analysis yet.<br />Click above to generate insights.</p>
-                            </div>
-                          )}
+                    {measurementStatus === 'error' && (
+                      <div className="mt-2 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl flex items-center gap-4 text-red-600 dark:text-red-400">
+                        <div className="w-10 h-10 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center shrink-0">
+                          <AlertTriangle size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">Sensor Error: Finger Removed</p>
+                          <p className="text-xs opacity-80">Please ensure your finger is placed properly on the sensor to continue measuring.</p>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Session Records */}
                   <div className="sleek-card p-6">
                     <div className="flex items-center gap-2 mb-6">
                       <History className="text-brand-blue" size={24} />
-                      <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100">Session Records</h3>
+                      <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100">Today's Session Records</h3>
                     </div>
 
-                    {measurements.length > 0 ? (
+                    {measurements.filter(m => new Date(m.timestamp).toDateString() === new Date().toDateString()).length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
                           <thead className="text-xs font-bold uppercase text-slate-400 border-b border-slate-100 dark:border-slate-800">
@@ -757,7 +759,7 @@ export default function App() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                            {measurements.slice().reverse().slice(0, 10).map(m => (
+                            {measurements.filter(m => new Date(m.timestamp).toDateString() === new Date().toDateString()).slice().reverse().slice(0, 10).map(m => (
                               <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                 <td className="py-4 px-4 text-sm">{new Date(m.timestamp).toLocaleTimeString()}</td>
                                 <td className="py-4 px-4 font-medium"><span className="text-brand-blue">{m.heartRate}</span> BPM</td>
@@ -780,7 +782,7 @@ export default function App() {
                       </div>
                     ) : (
                       <div className="text-center py-8 text-slate-400">
-                        No session records available yet.
+                        No session records available for today.
                       </div>
                     )}
                   </div>
