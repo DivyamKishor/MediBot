@@ -7,6 +7,16 @@ export interface Doctor {
   seed: string;
 }
 
+export interface RegimentItem {
+  id: string;
+  title: string;
+  sub: string;
+  icon: string;
+  color: string;
+  completed: boolean;
+  lastUpdated: string;
+}
+
 export interface UserProfile {
   userId: string;
   name: string;
@@ -19,6 +29,7 @@ export interface UserProfile {
   createdAt: string;
   isDeleted?: boolean;
   doctors?: Doctor[];
+  regiment?: RegimentItem[];
 }
 
 export interface VitalMeasurement {

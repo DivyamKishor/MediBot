@@ -25,7 +25,7 @@ import SharedReportView from './components/dashboard/SharedReportView';
 import { db, auth, signInWithGoogle } from './lib/firebase';
 import { bluetoothService, MediData } from './lib/bluetooth';
 import { analyzeVitals } from './lib/gemini';
-import { UserProfile, VitalMeasurement, ViewType, AIAnalysis, Doctor, SharedReport } from './types';
+import { UserProfile, VitalMeasurement, ViewType, AIAnalysis, Doctor, SharedReport, RegimentItem } from './types';
 import { cn } from './lib/utils';
 
 export default function App() {
@@ -65,6 +65,62 @@ export default function App() {
   ];
 
   const doctorsList = profile?.doctors?.length ? profile.doctors : defaultDoctors;
+
+  const [isRegimentModalOpen, setIsRegimentModalOpen] = useState(false);
+
+  const defaultRegiment: RegimentItem[] = [
+    { id: '1', title: 'Hydration Goal', sub: '2.5L Water Intake', icon: 'Droplets', color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20', completed: false, lastUpdated: new Date().toISOString() },
+    { id: '2', title: 'Cardio Session', sub: '20m Light Walking', icon: 'Activity', color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20', completed: false, lastUpdated: new Date().toISOString() },
+    { id: '3', title: 'Sleep Routine', sub: '8h Deep Rest', icon: 'Heart', color: 'text-rose-500 bg-rose-50 dark:bg-rose-900/20', completed: false, lastUpdated: new Date().toISOString() }
+  ];
+
+  const currentRegiment = profile?.regiment?.length ? profile.regiment : defaultRegiment;
+
+  const isCompletedToday = useCallback((item: RegimentItem) => {
+    if (!item.completed) return false;
+    return new Date(item.lastUpdated).toDateString() === new Date().toDateString();
+  }, []);
+
+  const handleToggleRegiment = async (id: string) => {
+    if (!profile) return;
+    const updated = currentRegiment.map(item => {
+      if (item.id === id) {
+        return { ...item, completed: !isCompletedToday(item), lastUpdated: new Date().toISOString() };
+      }
+      return item;
+    });
+    try {
+      await setDoc(doc(db, 'users', profile.userId), { ...profile, regiment: updated }, { merge: true });
+      setProfile({ ...profile, regiment: updated });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveRegiment = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!profile) return;
+    const formData = new FormData(e.currentTarget);
+    const updated = currentRegiment.map(item => ({
+      ...item,
+      title: formData.get(`title-${item.id}`) as string,
+      sub: formData.get(`sub-${item.id}`) as string,
+    }));
+    try {
+      await setDoc(doc(db, 'users', profile.userId), { ...profile, regiment: updated }, { merge: true });
+      setProfile({ ...profile, regiment: updated });
+      setIsRegimentModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to save regiment");
+    }
+  };
+
+  const renderIcon = (name: string, props: any) => {
+    const icons: any = { Droplets, Activity, Heart };
+    const IconComponent = icons[name] || Activity;
+    return <IconComponent {...props} />;
+  };
 
 
   const filteredHistory = useMemo(() => {
@@ -605,28 +661,29 @@ export default function App() {
                     <div className="sleek-card p-6 flex flex-col gap-6">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-display font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Daily Regiment</h3>
-                        <button className="text-slate-400 hover:text-brand-indigo transition-colors"><MoreHorizontal size={20} /></button>
+                        <button onClick={() => setIsRegimentModalOpen(true)} className="text-slate-400 hover:text-brand-indigo transition-colors"><MoreHorizontal size={20} /></button>
                       </div>
 
                       <div className="flex flex-col gap-3">
-                        {[
-                          { title: 'Hydration Goal', sub: '2.5L Water Intake', icon: Droplets, color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' },
-                          { title: 'Cardio Session', sub: '20m Light Walking', icon: Activity, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' },
-                          { title: 'Sleep Routine', sub: '8h Deep Rest', icon: Heart, color: 'text-rose-500 bg-rose-50 dark:bg-rose-900/20' }
-                        ].map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/50 hover:border-brand-indigo/30 transition-all">
-                            <div className="flex items-center gap-4">
-                              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", item.color)}>
-                                <item.icon size={18} />
+                        {currentRegiment.map((item) => {
+                          const completed = isCompletedToday(item);
+                          return (
+                            <div key={item.id} className={cn("flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border transition-all cursor-pointer", completed ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-900/20" : "border-slate-100 dark:border-slate-800/50 hover:border-brand-indigo/30")} onClick={() => handleToggleRegiment(item.id)}>
+                              <div className="flex items-center gap-4">
+                                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center transition-all", completed ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400 scale-110" : item.color)}>
+                                  {completed ? <Check size={18} /> : renderIcon(item.icon, { size: 18 })}
+                                </div>
+                                <div>
+                                  <p className={cn("font-bold text-sm transition-all", completed ? "text-emerald-700 dark:text-emerald-400 line-through opacity-80" : "text-slate-800 dark:text-slate-100")}>{item.title}</p>
+                                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">{item.sub}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{item.title}</p>
-                                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">{item.sub}</p>
+                              <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all", completed ? "border-emerald-500 bg-emerald-500" : "border-slate-300 dark:border-slate-600")}>
+                                {completed && <Check size={12} className="text-white" />}
                               </div>
                             </div>
-                            <MoreHorizontal size={18} className="text-slate-300" />
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1313,6 +1370,54 @@ export default function App() {
                     Save Doctor
                   </button>
                   <button type="button" onClick={() => setIsAddDoctorModalOpen(false)} className="text-slate-400 text-sm font-medium hover:text-slate-600 transition-colors">Cancel</button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Edit Regiment Modal */}
+        <AnimatePresence>
+          {isRegimentModalOpen && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              >
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 bg-brand-indigo text-white rounded-xl flex items-center justify-center"><Activity /></div>
+                  <h2 className="text-2xl font-display font-bold">Edit Daily Goals</h2>
+                </div>
+                <form onSubmit={handleSaveRegiment} className="flex flex-col gap-6">
+                  {currentRegiment.map(item => (
+                    <div key={item.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/50">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", item.color)}>
+                          {renderIcon(item.icon, { size: 14 })}
+                        </div>
+                        <p className="font-bold text-sm text-slate-800 dark:text-slate-100">Goal {item.id}</p>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Title</label>
+                          <input name={`title-${item.id}`} defaultValue={item.title} required placeholder="Hydration Goal" className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-brand-indigo/30 text-sm outline-none" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Details</label>
+                          <input name={`sub-${item.id}`} defaultValue={item.sub} required placeholder="2.5L Water Intake" className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-brand-indigo/30 text-sm outline-none" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="pt-2">
+                    <button type="submit" className="w-full py-4 bg-brand-indigo text-white rounded-2xl font-bold shadow-lg shadow-brand-indigo/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                      Save Goals
+                    </button>
+                    <button type="button" onClick={() => setIsRegimentModalOpen(false)} className="mt-3 w-full text-slate-400 text-sm font-medium hover:text-slate-600 transition-colors">Cancel</button>
+                  </div>
                 </form>
               </motion.div>
             </div>
