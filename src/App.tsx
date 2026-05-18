@@ -34,6 +34,7 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [allProfiles, setAllProfiles] = useState<UserProfile[]>([]);
   const [measurements, setMeasurements] = useState<VitalMeasurement[]>([]);
+  const [isLoadingMeasurements, setIsLoadingMeasurements] = useState(true);
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [darkMode, setDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -196,6 +197,7 @@ export default function App() {
   // Measurement Sync
   useEffect(() => {
     if (!profile) return;
+    setIsLoadingMeasurements(true);
 
     const q = query(
       collection(db, 'measurements'),
@@ -208,6 +210,7 @@ export default function App() {
     return onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as VitalMeasurement));
       setMeasurements(data.reverse());
+      setIsLoadingMeasurements(false);
     });
   }, [profile]);
 
@@ -555,6 +558,7 @@ export default function App() {
   }
 
   const latest = measurements[measurements.length - 1];
+  const hasMeasuredToday = latest && new Date(latest.timestamp).toDateString() === new Date().toDateString();
 
   return (
     <div className={cn("min-h-screen", darkMode && "dark")}>
@@ -582,6 +586,16 @@ export default function App() {
 
               {currentView === 'dashboard' && (
                 <>
+                  {!isLoadingMeasurements && !hasMeasuredToday && (
+                    <div className="p-4 mb-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-2xl flex items-center gap-4 text-red-600 dark:text-red-400">
+                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900/50 rounded-xl flex items-center justify-center shrink-0">
+                        <AlertTriangle size={20} />
+                      </div>
+                      <div>
+                        <p className="font-bold">Vitals have not been measured today, please measure your vitals.</p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mb-2">
                     <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 font-display">Vital Overview</h2>
                     <div className="h-4 w-[1px] bg-slate-300 dark:bg-slate-700 mx-2"></div>
